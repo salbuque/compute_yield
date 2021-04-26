@@ -15,18 +15,34 @@ library(gridExtra)
 library(purrr)
 ```
 
-```{r}
+```{r read in function}
+# read in function based on your almond yield function that returns the mean and inter-annual variation in yield anomaly.
+
 source("almond_yield_model_SA.R")
+```
 
-# Lets consider 3 of the parameters....
-factors = c("hieght", "windspeed")
 
-# Decide How many parameter sets to run
-nsets=100
+```{r Latin Hyper Cube SA}
+# Perform a  Latin Hypercube (LHR) sensitivity analysis of the 2 coefficients on precipitation - assume that # uniform distribution ("qunif") 
+#min value 20% below the default value 
+#max value 20% above the default value.
+```
 
-# choose distributions for parameters - this would come from
-# what you know about the likely range of variation
-q = c("qnorm", "qnorm")
-q.arg = list(list(mean=-0.015,sd=0.005), list(mean=-0.0046, sd=0.001), list(min=0.00429, max=0.00431))
+
+```{r Plot Output Change with Parameter Uncertainty}
+# Plotting
+#1) the scatter plot that shows how output change with parameter uncertainty
+```
+
+
+```{r Plot PRCC}
+#2) the plot of the PRCC. 
+
+```
+
+```{r}
+# In your Rmarkdown, note which of the two parameters contribute more to parameter uncertainty.
+# Submit your Rmarkdown (as a PDF or HTML) with code and the two graphs included
+
 ```
 
