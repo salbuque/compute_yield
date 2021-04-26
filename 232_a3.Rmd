@@ -1,0 +1,32 @@
+---
+title: "sesitivity_sobel_try"
+author: "Simone Albuquerque"
+date: "4/21/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(sensitivity)
+library(tidyverse)
+library(pse)
+library(here)
+library(gridExtra)
+library(purrr)
+```
+
+```{r}
+source("almond_yield_model_SA.R")
+
+# Lets consider 3 of the parameters....
+factors = c("hieght", "windspeed")
+
+# Decide How many parameter sets to run
+nsets=100
+
+# choose distributions for parameters - this would come from
+# what you know about the likely range of variation
+q = c("qnorm", "qnorm")
+q.arg = list(list(mean=-0.015,sd=0.005), list(mean=-0.0046, sd=0.001), list(min=0.00429, max=0.00431))
+```
+

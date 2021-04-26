@@ -1,0 +1,269 @@
+---
+title: "Using data with functions"
+output: html_document
+---
+<style type="text/css"> body, td { font-size: 20px; } code.r{ font-size: 14px; } pre { font-size: 14px } </style>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(purrr)
+#setwd("/Users/naomitague/Courses/ESM232")
+
+```
+
+## Organizing your work
+
+* Store function definition in **R** subdirectory
+* Store  Rmarkdown in different subdirectory (**Rmarkdown**)
+* Set the scripts (**Rmarkdown**) as working directory
+* Use **source** to read the functions into your working directory
+
+```{r getfunctions}
+source("/power_gen.R")
+power_gen
+```
+
+## Generating Data for your function
+
+You often want to apply your function to a range of data, that can come from
+
+* files you read in to R (measured height and flow rate values)
+* output from other functions/models 
+* data that you generate
+  * sensitivity analysis
+  * testing your model
+  * stochastic models
+
+***
+
+### Random Numbers as Inputs
+
+* sample from distributions (normal, uniform, poisson), which distribution depends on the model
+* R has many tools for generating samples from distributions with known parameters (such as mean, standard deviation, or min/max)
+  *  generating rainfall for a hydrologic model given know mean and variance of rainfall
+  
+* R also has tools for picking samples from collections 
+  * generating fish catches based on populations for an economic model
+  
+  
+  Others?
+
+
+### Steps for running your model over multiple inputs
+1. design a data structure to store results: sometimes this is automatic but not always
+2. generate the input data
+3. apply to the model
+
+
+Example: Imagine we want to see how much power is generated given scenario where we know the mean and standard deviation of flow rates and heights for the reservoir,  we want to compute the distribution of power by running our power_gen model
+
+There are some useful R commands - there are many ways to do this, we will use 
+commands from *purrr* library 
+
+We will start with 
+* map_dfc  (run a function over multiple inputs and return as a data frame (df), organized by column)
+
+Lets say we know that heights come from a normal distribtuion with mean 10m and standard deviation of 1m
+And flow rates anywhere between 0.1 and 1
+
+```{r sampling}
+
+
+
+# Step 1  create data frame to store results 
+# how many simulations
+number_runs = 20
+
+#create a dataframe that has rows for each model run
+# columns for height, flow and power estimate
+reservoir_model_res= as.data.frame(matrix(nrow=number_runs, ncol=2))
+colnames(reservoir_model_res)=c("height","flow")
+
+
+# STep 2 - generate heights and flow rates
+reservoir_model_res$height = rnorm(mean=10, sd=1, n=number_runs)
+reservoir_model_res$flow = runif(min=0.1, max=1, n=number_runs)
+
+# Step 3 - apply model to get power for each height, flow rate - R will automatically do this IF function will be applied to each row of the data frame
+reservoir_model_res = reservoir_model_res %>% mutate(Power=power_gen(height,flow))
+
+# Always graph results to make sure they make sense
+#View(reservoir_model_res)
+ggplot(reservoir_model_res, aes(flow, Power))+geom_point()+labs(x="Flow Rate m3/s", y="Power (W/s)")
+
+# try this with different distributions for height and flow rate (different type of distribution), different parameters
+                                  
+```
+ 
+# A more complex example 
+
+We might also want to compute for a range of efficiencies
+
+Say for 0.1 to 0.8 in steps
+
+This gets a bit more complicated - what if we want to look at our 20 samples of flow rate and height for EACH reservoir efficieny
+
+
+We can use map_dfc - which applies the function over a sequence of data and returns a data frame organized by columns
+
+
+Syntax is
+map_dfc(parameters you want to vary, function,  other inputs and  parameters)  
+
+
+See example below
+
+```{r sampling2}
+
+# create a sequence of efficienies
+Keff = seq(from=0.1, to=0.9, by=0.1)
+length(Keff)
+
+# create a data structure - now we have to have one for each Keff
+
+# use map_dfc to run for each value of Keff - where we get results for all heights and flow rates for each efficiency value
+
+
+res = map_dfc(Keff, power_gen, height=reservoir_model_res$height, flow=reservoir_model_res$flow)
+
+head(res)
+# turn it into a data frame to support adding colums
+colnames(res)=Keff
+
+# rearrange to plot
+resg=as.data.frame(res) %>% pivot_longer(everything(),names_to="Keff", values_to="Power")
+ggplot(resg, aes(Keff, Power, fill=Keff))+geom_boxplot() + labs(y="Power (W/s)", "Efficiency")
+
+
+# do this yourself but expand the range of Keff to go up to 0.9
+      
+```
+
+# Creating scenarios when you are varying many inputs and parameters
+
+Often in running models - we have this situation where we are going to run across multiple inputs and parameters
+
+Think creatively about data structures to store results
+
+If there are too many dimensions (things that vary), it can be useful to define a scenario
+and give it a unique ID
+
+There are some good R tools for this
+
+** pivot_longer **  to collapse dimensions into labels and values
+** inner_join ** to link datasets together by ID
+
+In our case - in our res results - we don't know what the "height" and "flow" rates were for each power output - so we can define a sceanrio id (scen) to keep track of all this
+
+```{r scen}
+
+head(reservoir_model_res)
+
+reservoir_model_res$scen= seq(from=1, to=nrow(reservoir_model_res))
+res$scen = seq(from=1, to=nrow(reservoir_model_res))
+
+head(reservoir_model_res)
+head(res)
+
+# now combine into a long dataset
+# the !scen means don't use it in the gathering
+
+resg=as.data.frame(res) %>% pivot_longer(!scen,names_to="Keff", values_to="Power")
+
+# now we can join with original reservoir results
+# the original dataset had a default power column so we will add suffixes to account for that
+
+# we use left_join and the resg as the left object because there are 'more' of them - one for each Keff
+all_res = left_join(resg, reservoir_model_res, by="scen", suffix=c("",".default"))
+
+# with this we can now plot power as a function of flow rate (what the operator would control) for all of our efficiencies and possible reservoir heights
+ggplot(all_res, aes(flow, Power, col=Keff))+geom_point()+labs(x="Flow Rates m3/s", y="Power W/m2")
+
+```
+
+
+# Lists - For returning more than one item from your function
+
+*Lists are the most “informal” data structures in R
+*List are really useful for keeping track of and organizing groups of things that are not all the same
+*A list could be a table where number of rows is different for each column
+*A list can have numeric, character, factors all mixed together
+* List are often used for returning more complex information from function (e.g. lm)
+
+Here are some examples of how to create and manipulate lists
+
+```{r lists}
+# simple list
+sale =  list(number=c(2,4,9), quality="high", what="apple", cost=4)
+sale
+sale$cost
+sale$number
+
+# 4th item in the list
+sale[4]
+
+```
+
+# Lists are used to return multiple values from functions
+<center>
+**return(list(....))**
+</center>
+
+The function will return a list - you can always extract values from a list using its name
+
+Here's an example, what if what we want from our power_gen routine is actually the maximum , minimum and average power generation, 
+
+Here we will also use *map* from *purrr* to help us extract elements from a list once they come back from the function
+
+
+```{r}
+
+source("../R/power_gen_summary.R")
+
+height = runif(min=0, max=100, n=100)
+flow = runif(min=0, max=2, n=100)
+
+power = power_gen_summary(height=height, flow=flow)
+head(power)
+
+# try it yourself - try modifying power_gen_sumamry to also output the sum!
+
+# lets now look at how summary varies with efficiency
+Keff = seq(from=0.1, to=0.9, by=0.05)
+
+# now we use a regular *map* 
+# we can't use map_df because our function now returns multiple items in a list
+# so R can't so easily turn it into a data frame
+# the basic *map* returns a list of lists!
+res = map(Keff, power_gen_summary, height=reservoir_model_res$height, flow=reservoir_model_res$flow) 
+
+# res is now a list of list swith values of max, min and mean for each Keff
+head(res)
+
+#First list item is a list!
+res[[1]]
+
+#To get second item in first list
+res[[1]][[2]]
+
+# not so easy but we can extract items from the list
+
+# we can use map to extract named items from a list to a double (numeric)
+map_dbl(res,"mean")
+map_dbl(res, "min")
+
+# to get a data frame from list output, using different  names
+resdf = map_dfr(res,`[`, c("mean","min","max"))
+
+# add our Keff
+resdf$Keff = Keff
+
+# now we have a form that we can plot
+ggplot(resdf, aes(Keff, max))+geom_point() + labs(y="Max Power (W/s)", "Efficiency")
+
+# try this if you modify the function to also output the total power
+# try running with a different range of Keff
+
+```
+
