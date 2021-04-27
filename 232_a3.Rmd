@@ -11,7 +11,8 @@ library(sensitivity)
 library(tidyverse)
 library(pse) #LHS Analysis 
 library(here) #sourcing functions
-
+library(gridExtra)
+library(purrr) 
 ```
 
 ```{r read in function}
@@ -51,7 +52,7 @@ head(SA_pars)
 ```
 
 
-```{r Latin Hyper Cube SA}
+```{r LHS data}
 # read in the input data
 climate_data_df=read.table("clim.txt", header = TRUE)
 
