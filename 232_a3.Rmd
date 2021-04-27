@@ -18,7 +18,7 @@ library(purrr)
 ```{r read in function}
 # read in function based on your almond yield function that returns the mean and inter-annual variation in yield anomaly.
 
-# source("almond_yield_model_SA.R")
+source("almond_yield_model_SA.R")
 # 
 # #read in climate dataframe 
 # climate_data_df<- read.delim("clim.txt", header = TRUE, sep = "", quote = "\"'",
@@ -86,7 +86,9 @@ SA_almond_yield = pse::tell(SA_almond_yield, t(as.matrix(resd)), res.names=c("me
 pse::plotscatter(SA_almond_yield, col="blue", cex=5)
 
 ```
-#The second precipitation coefficient contribute more to parameter uncertainty. 
+
+
+**The second precipitation coefficient contribute more to parameter uncertainty.**
 
 ```{r Plot PRCC}
 #2) the plot of the PRCC. 
